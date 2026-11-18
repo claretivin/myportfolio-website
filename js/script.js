@@ -10,14 +10,12 @@ function applyTheme(theme) {
   if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b0c12' : '#ffffff');
 }
 
-const savedTheme = localStorage.getItem('theme');
-const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-applyTheme(savedTheme || (systemPrefersDark ? 'dark' : 'light'));
-
+// The initial theme is applied by the inline script in <head> before first paint.
 themeToggle.addEventListener('click', () => {
   const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   applyTheme(next);
-  localStorage.setItem('theme', next);
+  // Storage can throw when site data is blocked; the toggle still works for this visit.
+  try { localStorage.setItem('theme', next); } catch (e) { /* ignore */ }
 });
 
 /* ---------- Nav scroll state ---------- */
@@ -143,7 +141,7 @@ function openModal(key) {
   if (!cs) return;
   modalContent.innerHTML = `
     <div class="project-tags">${cs.tags.map(t => `<span>${t}</span>`).join('')}</div>
-    <h2>${cs.title}</h2>
+    <h2 id="modalTitle">${cs.title}</h2>
     <p>${cs.overview}</p>
     <h4>My Role</h4>
     <p>${cs.role}</p>
@@ -156,10 +154,33 @@ function openModal(key) {
   modalClose.focus();
 }
 
+function isModalOpen() {
+  return modalOverlay.classList.contains('open');
+}
+
 function closeModal() {
+  if (!isModalOpen()) return;
   modalOverlay.classList.remove('open');
   document.body.style.overflow = '';
   if (lastFocused) lastFocused.focus();
+  lastFocused = null;
+}
+
+// Keep Tab / Shift+Tab inside the open modal.
+function trapFocus(e) {
+  const focusables = modalOverlay.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !modalOverlay.contains(document.activeElement))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (document.activeElement === last || !modalOverlay.contains(document.activeElement))) {
+    e.preventDefault();
+    first.focus();
+  }
 }
 
 document.querySelectorAll('[data-open]').forEach(card => {
@@ -176,7 +197,9 @@ modalOverlay.addEventListener('click', (e) => {
   if (e.target === modalOverlay) closeModal();
 });
 document.addEventListener('keydown', (e) => {
+  if (!isModalOpen()) return;
   if (e.key === 'Escape') closeModal();
+  else if (e.key === 'Tab') trapFocus(e);
 });
 
 /* ---------- Contact form submission (Formspree) ---------- */
@@ -188,9 +211,16 @@ contactForm.addEventListener('submit', async (e) => {
   const submitBtn = contactForm.querySelector('.form-submit');
   const formData = new FormData(contactForm);
 
+  // Until a real Formspree ID is set in index.html, hand the message to the
+  // visitor's email app so the form still works.
   if (contactForm.action.includes('YOUR_FORM_ID')) {
-    formStatus.textContent = 'Contact form UI is ready — connect a Formspree form ID in index.html to enable sending.';
-    formStatus.className = 'form-status error';
+    const mailLink = document.querySelector('a[href^="mailto:"]');
+    const to = mailLink ? mailLink.getAttribute('href').replace(/^mailto:/, '') : '';
+    const subject = formData.get('subject') || 'Hello';
+    const body = `${formData.get('message')}\n\n— ${formData.get('name')} (${formData.get('email')})`;
+    window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    formStatus.textContent = 'Opening your email app to send this message…';
+    formStatus.className = 'form-status';
     return;
   }
 
@@ -208,6 +238,7 @@ contactForm.addEventListener('submit', async (e) => {
       formStatus.textContent = "Message sent — thanks for reaching out! I'll reply soon.";
       formStatus.className = 'form-status success';
       contactForm.reset();
+      burstConfetti(submitBtn);
     } else {
       throw new Error('Submission failed');
     }
@@ -218,3 +249,129 @@ contactForm.addEventListener('submit', async (e) => {
     submitBtn.disabled = false;
   }
 });
+
+/* ============================================================
+   Extra effects: scroll progress, spotlight, ripple, count-up,
+   confetti, scramble-reveal
+   ============================================================ */
+
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- Scroll progress bar ---------- */
+const scrollProgress = document.getElementById('scrollProgress');
+function updateScrollProgress() {
+  if (!scrollProgress) return;
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  scrollProgress.style.width = pct + '%';
+}
+window.addEventListener('scroll', updateScrollProgress, { passive: true });
+updateScrollProgress();
+
+/* ---------- Hero cursor spotlight ---------- */
+const heroEl = document.getElementById('home');
+if (heroEl && window.matchMedia('(pointer: fine)').matches) {
+  heroEl.addEventListener('mousemove', (e) => {
+    const rect = heroEl.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    heroEl.style.setProperty('--spot-x', `${x}%`);
+    heroEl.style.setProperty('--spot-y', `${y}%`);
+    heroEl.classList.add('spotlight-active');
+  });
+  heroEl.addEventListener('mouseleave', () => heroEl.classList.remove('spotlight-active'));
+}
+
+/* ---------- Button ripple ---------- */
+document.querySelectorAll('.btn').forEach((btn) => {
+  btn.addEventListener('click', function (e) {
+    const rect = this.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+    ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+    this.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove());
+  });
+});
+
+/* ---------- Count-up numbers (e.g. "5+ yrs" badge) ---------- */
+function animateCountUp(el, target, duration = 1200) {
+  const start = performance.now();
+  function tick(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(eased * target);
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+const countEls = document.querySelectorAll('.count-up');
+if (countEls.length) {
+  if (prefersReducedMotion) {
+    countEls.forEach(el => { el.textContent = el.dataset.target; });
+  } else {
+    const countObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          animateCountUp(entry.target, parseInt(entry.target.dataset.target, 10));
+          countObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.4 });
+    countEls.forEach(el => countObserver.observe(el));
+  }
+}
+
+/* ---------- Confetti burst ---------- */
+function burstConfetti(originEl) {
+  if (prefersReducedMotion || !originEl) return;
+  const rect = originEl.getBoundingClientRect();
+  const colors = ['#5b5bd6', '#14b8a6', '#8b8cf9', '#2dd4bf'];
+  for (let i = 0; i < 26; i++) {
+    const particle = document.createElement('span');
+    particle.className = 'confetti-particle';
+    particle.style.left = (rect.left + rect.width / 2) + 'px';
+    particle.style.top = (rect.top + rect.height / 2) + 'px';
+    particle.style.background = colors[i % colors.length];
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 60 + Math.random() * 100;
+    particle.style.setProperty('--dx', `${Math.cos(angle) * distance}px`);
+    particle.style.setProperty('--dy', `${Math.sin(angle) * distance}px`);
+    document.body.appendChild(particle);
+    particle.addEventListener('animationend', () => particle.remove());
+  }
+}
+
+/* ---------- Scramble-reveal for hero role text ---------- */
+function scrambleReveal(el, finalText, duration = 900) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ01#$%&*+-/';
+  const frameRate = 30;
+  const totalFrames = Math.round(duration / (1000 / frameRate));
+  let frame = 0;
+  const timer = setInterval(() => {
+    frame++;
+    let out = '';
+    for (let i = 0; i < finalText.length; i++) {
+      const ch = finalText[i];
+      if (ch === ' ' || ch === '\u00A0') { out += ch; continue; }
+      const revealAt = (i / finalText.length) * totalFrames;
+      out += frame >= revealAt ? ch : chars[Math.floor(Math.random() * chars.length)];
+    }
+    el.textContent = out;
+    if (frame >= totalFrames) {
+      el.textContent = finalText;
+      clearInterval(timer);
+    }
+  }, 1000 / frameRate);
+}
+const scrambleEl = document.querySelector('.scramble-text');
+if (scrambleEl && !prefersReducedMotion) {
+  const originalText = scrambleEl.textContent;
+  window.addEventListener('load', () => {
+    setTimeout(() => scrambleReveal(scrambleEl, originalText), 400);
+  });
+}

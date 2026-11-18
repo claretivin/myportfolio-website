@@ -11,7 +11,7 @@ portfolio-website/
 │   └── style.css        # All styling
 ├── js/
 │   └── script.js         # Nav, scroll animations, project modals, contact form
-├── assets/              # Put images (profile photo, project screenshots) here
+├── assets/              # (create this) images such as a profile photo and project screenshots
 ├── .vscode/              # Editor settings + recommended extensions
 └── .gitignore
 ```
@@ -33,7 +33,8 @@ Then open `http://localhost:5500`.
 
 ## Before you publish
 
-- **Contact form**: open `index.html`, find `YOUR_FORM_ID` in the `<form action="https://formspree.io/f/YOUR_FORM_ID">` line, and replace it with your real [Formspree](https://formspree.io) form ID so submissions actually reach your inbox.
+- **Contact form**: open `index.html`, find `YOUR_FORM_ID` in the `<form action="https://formspree.io/f/YOUR_FORM_ID">` line, and replace it with your real [Formspree](https://formspree.io) form ID so submissions actually reach your inbox. Until then, submitting the form opens the visitor's email app with the message pre-filled.
+- **Share preview image**: once you know the live URL, add `<meta property="og:url">` and `<meta property="og:image">` (a 1200×630 image) in `<head>` so LinkedIn shows a picture.
 - **Project images**: drop screenshots into `assets/` and swap them in for the icon placeholders in the `.project-thumb` divs in `index.html` if you want visuals instead of icons.
 
 ## Deploy

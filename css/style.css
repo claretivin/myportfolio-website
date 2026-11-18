@@ -127,8 +127,8 @@ html[data-theme="dark"] .icon-moon-ui { opacity: 1; transform: rotate(0deg) scal
 .nav-toggle span { width: 22px; height: 2px; background: var(--ink); border-radius: 2px; transition: transform .25s ease, opacity .25s ease; }
 
 /* Hero */
-.hero { min-height: 100vh; display: flex; align-items: center; padding-top: 90px; }
-.hero-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 60px; align-items: center; }
+.hero { min-height: 100vh; display: flex; align-items: center; padding-top: 90px; position: relative; overflow: hidden; }
+.hero-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 60px; align-items: center; position: relative; z-index: 1; }
 
 .eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
@@ -245,6 +245,7 @@ html[data-theme="dark"] .icon-moon-ui { opacity: 1; transform: rotate(0deg) scal
   transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
   transform-style: preserve-3d;
   will-change: transform;
+  position: relative;
 }
 .project-card:hover, .project-card:focus-visible {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
@@ -308,9 +309,12 @@ a.contact-row:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--
 .modal-overlay {
   position: fixed; inset: 0; background: color-mix(in srgb, var(--bg) 20%, rgba(0,0,0,0.55));
   backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center;
-  padding: 24px; z-index: 200; opacity: 0; pointer-events: none; transition: opacity .25s ease;
+  padding: 24px; z-index: 200; opacity: 0; pointer-events: none;
+  /* visibility removes the closed modal from the tab order and screen readers;
+     it switches only after the fade-out finishes */
+  visibility: hidden; transition: opacity .25s ease, visibility 0s linear .25s;
 }
-.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal-overlay.open { opacity: 1; pointer-events: auto; visibility: visible; transition: opacity .25s ease; }
 .modal {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   max-width: 620px; width: 100%; max-height: 82vh; overflow-y: auto; padding: 40px;
@@ -320,7 +324,7 @@ a.contact-row:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--
 .modal-close {
   position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; border-radius: 50%;
   background: var(--surface-2); border: 1px solid var(--border); color: var(--ink); cursor: pointer;
-  display: flex; align-items: center; justify-content: center; transition: all .2s ease;
+  display: flex; align-items: center; justify-content: center; transition: border-color .2s ease, color .2s ease;
 }
 .modal-close:hover { border-color: var(--accent); color: var(--accent); }
 .modal-content .project-tags span { font-size: 0.75rem; }
@@ -333,8 +337,9 @@ a.contact-row:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--
 .modal-content .tags { margin-top: 10px; }
 
 /* Reveal animation */
-.reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
-.reveal.in-view { opacity: 1; transform: translateY(0); }
+/* Only hidden when JS is running (html.js is set in <head>), so the page is readable without JS */
+.js .reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
+.js .reveal.in-view { opacity: 1; transform: translateY(0); }
 
 /* Responsive */
 @media (max-width: 980px) {
@@ -360,4 +365,67 @@ a.contact-row:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--
   .form-row { grid-template-columns: 1fr; }
   .section { padding: 80px 0; }
   .hero { padding-top: 100px; }
+}
+
+/* ============================================================
+   Extra effects: scroll progress, spotlight, shimmer, ripple,
+   count-up, confetti, scramble-reveal
+   ============================================================ */
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Scroll progress bar */
+.scroll-progress {
+  position: fixed; top: 0; left: 0; height: 3px; width: 0%;
+  background: var(--gradient); z-index: 101;
+  transition: width .12s ease-out;
+}
+
+/* Hero cursor spotlight */
+.hero-spotlight {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  opacity: 0;
+  background: radial-gradient(420px circle at var(--spot-x, 50%) var(--spot-y, 20%), color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+  transition: opacity .4s ease;
+}
+.hero.spotlight-active .hero-spotlight { opacity: 1; }
+
+/* Shimmering gradient name */
+.shimmer-text {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmerMove 4s linear infinite;
+}
+@keyframes shimmerMove { to { background-position: -200% center; } }
+
+/* Button ripple */
+.btn { position: relative; overflow: hidden; }
+.btn .ripple {
+  position: absolute; border-radius: 50%; transform: scale(0);
+  animation: rippleAnim .6s ease-out forwards; pointer-events: none;
+  background: color-mix(in srgb, var(--accent-ink) 55%, transparent);
+}
+.btn-outline .ripple { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+@keyframes rippleAnim { to { transform: scale(2.8); opacity: 0; } }
+
+/* Confetti burst (contact form success) */
+.confetti-particle {
+  position: fixed; width: 7px; height: 7px; border-radius: 2px;
+  pointer-events: none; z-index: 300;
+  animation: confettiFly .9s ease-out forwards;
+}
+@keyframes confettiFly {
+  to { transform: translate(var(--dx), var(--dy)) rotate(360deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-text, .avatar-ring, .pulse-dot { animation: none !important; }
+  .hero-spotlight, .scroll-progress { transition: none !important; }
+  .btn .ripple, .confetti-particle { animation: none !important; display: none; }
 }
