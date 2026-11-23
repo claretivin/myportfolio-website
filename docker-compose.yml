@@ -2,11 +2,7 @@ services:
   web:
     image: nginx:alpine
     restart: unless-stopped
-    # Mount only the site files, read-only, so .git and other project folders are never served.
     volumes:
-      - ./index.html:/usr/share/nginx/html/index.html:ro
-      - ./css:/usr/share/nginx/html/css:ro
-      - ./js:/usr/share/nginx/html/js:ro
-      - ./assets:/usr/share/nginx/html/assets:ro
+      - ./:/usr/share/nginx/html:ro
     ports:
       - "8080:80"
