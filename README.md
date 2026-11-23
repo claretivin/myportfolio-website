@@ -28,6 +28,14 @@ python3 -m http.server 5500
 
 Then open `http://localhost:5500`.
 
+### With Docker
+
+```bash
+docker compose up -d
+```
+
+Then open `http://localhost:8080`. Stop it with `docker compose down`. The container serves only `index.html`, `css/`, `js/` and `assets/`, read-only; edits show up on refresh.
+
 ## Before you publish
 
 - **Contact form**: in `index.html`, replace `YOUR_FORM_ID` in `action="https://formspree.io/f/YOUR_FORM_ID"` with your [Formspree](https://formspree.io) form ID. Until then the form opens the visitor's email app with the message filled in.
